@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset=utf-8 />
+    <title>US Electric Power Generation</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+
+    <script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
+
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
+    <link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: whitesmoke;
+            font-family: Lato, sans-serif;
+            color: #0D0000;
+        }
+        header {
+            padding: 6px 10%;
+        }
+        h1 {
+            display: inline-block;
+            margin-right: 20px;
+            color: #a6cee3;
+        }
+        h2 {
+            display: inline-block;
+            color: #a6cee3;
+        }
+        #map {
+            width: 80%;
+            height: 540px;
+            margin: 10px auto;
+        }
+        footer {
+            padding: 6px 10%;
+            width: 80%;
+        }
+        p {
+            font-size: .8em;
+            color: #001323;
+        }
+        a {
+            color: darkgreen;
+            font-weight: bold;
+            text-decoration: none; 
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>U.S. Electric Power Generation</h1>
+        <h2>Non-coal Sources</h2>
+    </header>
+
+    <div id='map'></div>
+
+    <footer>
+        <p>Map authored by Ryan Rogers, 2016.</p>
+        <p>Map data provided by <a href="http://www.openstreetmap.org">OpenStreetMap</a>. Tiles from <a href="http://www.cartodb.com">CartoDB</a>. Energy production information gathered from the <a href="http://www.eia.gov">U.S. Energy Information Administration</a>.
+    </footer>
+
+    <script src="power-plants.js"></script>
+    <script>
+
+       var map = L.map('map', {
+          center: [36,-94],
+          zoom: 4,
+      });
+      
+      var tiles = L.tileLayer('http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+          subdomains: 'abcd',
+          maxZoom: 19
+      });  
+      
+      tiles.addTo(map);
+        
+        plants.features.sort(function(a, b) {
+            return b.properties.capacity_mw - a.properties.capacity_mw;
+        });
+        
+        var commonStyles = {
+            weight: 1,
+            stroke: 1,
+            fillOpacity: .4
+        };
+        
+        var layerInfo = {
+            nuclearLayer: {source: "Nuclear", color: 'limegreen' },
+            windLayer: {source: "Wind", color: '#a6cee3' },
+            gasLayer: {source: "Natural Gas", color: '#ffffe0'}
+        };
+        
+        var geoJsonLayers = {};
+        
+        var spotlight = L.circle([0,0], 500000, {
+            fillColor: true,
+            fillOpacity: .1,
+            stroke: false,
+            weight: 3,
+        }).addTo(map);
+        
+        
+        
+        for(var layer in layerInfo) {
+        geoJsonLayers[layer] = L.geoJson(plants, {
+            pointToLayer: function(feature, latlng) {
+                return L.circleMarker(latlng, commonStyles);
+            },
+            filter: function(feature) {
+                if(feature.properties.fuel_source[layerInfo[layer].source]) {
+                    return feature;
+                }
+            },
+            style: function(feature) {
+                return{
+                    color: layerInfo[layer].color,
+                    fillColor: layerInfo[layer].color,
+                    radius: getRadius(feature.properties.fuel_source[layerInfo[layer].source])
+                }
+            }
+        }).addTo(map);
+        }
+        
+        var sourcesLayers = {
+            "<b style='color:limegreen'>Nuclear</>": geoJsonLayers.nuclearLayer,
+            "<b style='color:#a6cee3'>Wind</>": geoJsonLayers.windLayer,
+            "<b style='color:#ffffe0; text-shadow: 0px 0px 1px #333;'>Natural Gas</>": geoJsonLayers.gasLayer
+        };
+
+        
+        map.on('click', function(e) {
+            spotlight.setStyle({fillColor: 'grey'}).setLatLng(e.latlng);
+            
+            for(var layer in geoJsonLayers) {
+            geoJsonLayers[layer].eachLayer(function(layer) {
+                var distance = e.latlng.distanceTo(layer.getLatLng())/1000; //distance as km
+                
+                if (distance > 500) {
+                    layer.setStyle({
+                        stroke: false,
+                        fill: false
+                    });
+                } else {
+                    layer.setStyle({
+                        stroke: true,
+                        fill: true
+                    });
+                    
+                    var fuelSource = layer.feature.properties.fuel_source;
+                    function displaySources(fuelSource) {
+                        for (var i = 0; i < fuelSource.length; i++) {
+                            return fuelSource
+                        }
+                    };
+                    var sources = displaySources(fuelSource);
+                    console.log();
+                    
+                    var popup = "<b>"+layer.feature.properties.plant_name+"</b><br>"+Object.getOwnPropertyNames(layer.feature.properties.fuel_source)+"<br>Distance from point: "+distance.toLocaleString()+" km<div>";
+                  
+                  layer.bindPopup(popup);
+                    
+                    
+                }
+            });
+        }
+    });
+        
+        
+        
+        
+        
+        L.control.layers(null, sourcesLayers, { collapsed:false }).addTo(map);
+        
+        
+        
+        function getRadius(area) {
+            var radius = Math.sqrt(area/Math.PI);
+            return radius * .6;
+        };
+        
+                  
+    </script>
+    
+</body>
+
+</html>
